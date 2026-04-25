@@ -4,12 +4,12 @@ import asyncio
 
 class CustomGigaChat(DeepEvalBaseLLM):
     def __init__(self, credentials: str = None, model: str = "GigaChat-Pro"):
-        # credentials — авторизационные данные (токен или ключ)
+        # credentials — authorization data (token or key
         self.model_name = model
         self.giga = GigaChat(
             credentials=credentials,
             model=model,
-            verify_ssl_certs=False,  # для тестов
+            verify_ssl_certs=False,  # for tests
             timeout=60
         )
     
@@ -22,7 +22,7 @@ class CustomGigaChat(DeepEvalBaseLLM):
         return response.choices[0].message.content
     
     async def a_generate(self, prompt: str) -> str:
-        # Асинхронная версия (можно сделать через отдельный поток)
+        # Asynchronous version (can be done via a separate thread)
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.generate, prompt)
     
