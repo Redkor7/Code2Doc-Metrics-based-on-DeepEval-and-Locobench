@@ -1,4 +1,4 @@
-##  Прямые конкуренты DeepEval
+## Прямые конкуренты DeepEval
 
 ### Ragas (RAG Assessment)
 

@@ -51,6 +51,6 @@ evaluate(test_cases=[test_case], metrics=[metric])
 ### Как происходит рассчет?
 Показатель ArgumentCorrectnessMetric рассчитывается в соответствии со следующим уравнением:
 
-Argument Correctness = Number of Correctly Generated Input Parameters​ / Total Number of Tool Calls
+`Argument Correctness = Number of Correctly Generated Input Parameters​ / Total Number of Tool Calls`
 
 ArgumentCorrectnessMetric оценивает корректность аргументов (входных параметров) для каждого вызова инструмента на основе задачи, описанной во входных данных.
