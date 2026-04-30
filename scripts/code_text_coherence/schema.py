@@ -4,16 +4,16 @@ from typing import List, Optional
 # --- (Schemas) ---
 
 class CodeExplanationPair(BaseModel):
-    code: str = Field(..., description="Извлеченный блок кода")
-    explanation: str = Field(..., description="Текст из документации, который поясняет этот блок кода")
+    code: str = Field(..., description="Extracted code block")
+    explanation: str = Field(..., description="Text from the documentation that explains this code block")
 
 class ExtractedPairs(BaseModel):
     pairs: List[CodeExplanationPair]
 
 class CoherenceVerdict(BaseModel):
     code: str
-    verdict: str = Field(..., description="'yes' если код и описание связны, 'no' если нет")
-    reason: str = Field(..., description="Причина оценки")
+    verdict: str = Field(..., description="'yes' if the code and explanation are coherent, 'no' otherwise")
+    reason: str = Field(..., description="Reason for the evaluation")
 
 class CoherenceVerdicts(BaseModel):
     verdicts: List[CoherenceVerdict]
