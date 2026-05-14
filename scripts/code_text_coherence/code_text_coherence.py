@@ -14,14 +14,15 @@ from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
 
-from schema import (
+from .schema import (
     CodeExplanationPair, 
     ExtractedPairs, 
     CoherenceVerdict, 
     CoherenceVerdicts, 
     CoherenceScoreReason
 )
-from template import CodeCoherenceTemplate
+
+from .template import CodeCoherenceTemplate
 
 
 class CodeCoherenceMetric(BaseMetric):

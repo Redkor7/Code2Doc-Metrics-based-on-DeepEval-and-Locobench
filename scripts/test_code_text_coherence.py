@@ -1,6 +1,11 @@
 from deepeval.test_case import LLMTestCase
-from code_text_coherence import CodeCoherenceMetric 
+from code_text_coherence.code_text_coherence import CodeCoherenceMetric 
 from giga_chat import CustomGigaChat
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+API_KEY = os.getenv("GigaChat_API_Key")
 
 # 1. Prepare the test data (output data from the tested LLM)
 # Here we intentionally make the first part coherent and the second part meaningless, 
@@ -40,7 +45,7 @@ HTML
 In order to connect to the PostgreSQL database, you need to use the psycopg2 library. Make sure to check your firewall settings so that port 5432 is open. """
 
 # 2. Initialize GigaChat
-gigachat_llm = CustomGigaChat(credentials="api")
+gigachat_llm = CustomGigaChat(credentials=API_KEY)
 
 # 3. Create a metric with a custom LLM as a judge
 metric = CodeCoherenceMetric( threshold=0.5, model=gigachat_llm, include_reason=True, verbose_mode=True )

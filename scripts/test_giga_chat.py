@@ -1,9 +1,14 @@
 from deepeval.metrics import AnswerRelevancyMetric
 from deepeval.test_case import LLMTestCase
 from giga_chat import CustomGigaChat
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+API_KEY = os.getenv("GigaChat_API_Key")
 
 # Инициализируем GigaChat
-gigachat_llm = CustomGigaChat(credentials="api_k")
+gigachat_llm = CustomGigaChat(credentials=API_KEY)
 
 # Создаём метрику с кастомной LLM
 metric = AnswerRelevancyMetric(model=gigachat_llm)

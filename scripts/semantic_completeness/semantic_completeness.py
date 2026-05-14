@@ -14,13 +14,13 @@ from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
 
-from schema import (
+from .schema import (
     ExpectedFacts,
     FactVerdict,
     CompletenessVerdicts,
     CompletenessScoreReason
 )
-from template import SemanticCompletenessTemplate
+from .template import SemanticCompletenessTemplate
 
 
 class SemanticCompletenessMetric(BaseMetric):

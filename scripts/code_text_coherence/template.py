@@ -1,5 +1,5 @@
 from typing import List
-from schema import CodeExplanationPair
+from .schema import CodeExplanationPair
 
 class CodeCoherenceTemplate:
     @staticmethod
