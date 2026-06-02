@@ -27,9 +27,10 @@ name: A string representing the username. We need this to personalize the messag
 uppercase: A boolean flag. Set this to True if you need the entire output to be in capital letters for emphasis.
 
 Database Connection
-Python
+```python
 def connect_to_db(host: str, port: int, retry_count: int = 3):
     pass
+```
 Use this function to establish a connection to the PostgreSQL backend.
 You must provide the host parameter, which is the IP address of the database server needed to route the traffic.
 """

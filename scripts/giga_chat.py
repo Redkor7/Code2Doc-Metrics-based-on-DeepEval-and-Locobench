@@ -3,7 +3,7 @@ from gigachat import GigaChat
 import asyncio
 
 class CustomGigaChat(DeepEvalBaseLLM):
-    def __init__(self, credentials: str = None, model: str = "GigaChat-Pro"):
+    def __init__(self, credentials: str = None, model: str = "GigaChat-Max"):
         # credentials — authorization data (token or key
         self.model_name = model
         self.giga = GigaChat(
