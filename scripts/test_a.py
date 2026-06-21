@@ -9,7 +9,6 @@ metric = AnswerRelevancyMetric(
 )
 test_case = LLMTestCase(
     input="What if these shoes don't fit?",
-    # Replace this with the output from your LLM app
     actual_output="We offer a 30-day full refund at no extra cost."
 )
 

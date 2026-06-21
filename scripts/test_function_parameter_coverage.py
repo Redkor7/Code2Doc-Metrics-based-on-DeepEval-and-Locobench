@@ -8,8 +8,8 @@ load_dotenv()
 API_KEY = os.getenv("GigaChat_API_Key")
 
 # 1. Prepare the test data
-# Первая функция описана полностью (параметры name, uppercase).
-# Вторая функция описана частично (host описан, port и retry_count - нет).
+# The first function is described in full (parameters name, uppercase).
+# The second function is partially described (host is described, port and retry_count are not).
 mock_llm_output = """
 # API Client Documentation
 
