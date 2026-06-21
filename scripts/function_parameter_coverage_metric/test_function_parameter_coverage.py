@@ -1,11 +1,5 @@
 from deepeval.test_case import LLMTestCase
-from function_parameter_coverage.function_parameter_coverage import FunctionParameterCoverageMetric 
-from giga_chat import CustomGigaChat
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
-API_KEY = os.getenv("GigaChat_API_Key")
+from function_parameter_coverage import FunctionParameterCoverageMetric 
 
 # 1. Prepare the test data
 # The first function is described in full (parameters name, uppercase).
@@ -35,11 +29,10 @@ Use this function to establish a connection to the PostgreSQL backend.
 You must provide the host parameter, which is the IP address of the database server needed to route the traffic.
 """
 
-gigachat_llm = CustomGigaChat(credentials=API_KEY)
 
 metric = FunctionParameterCoverageMetric(
 threshold=0.8,
-model=gigachat_llm,
+model="gpt-4.1-mini",
 include_reason=True,
 verbose_mode=True
 )

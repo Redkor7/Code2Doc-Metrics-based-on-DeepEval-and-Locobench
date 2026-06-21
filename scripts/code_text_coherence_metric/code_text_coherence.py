@@ -14,18 +14,18 @@ from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
 
-from .schema import (
-    FunctionExtraction, 
-    ExtractedFunctions, 
-    ParameterVerdict, 
-    ParameterVerdicts, 
-    ParameterScoreReason
+from schema import (
+    CodeExplanationPair, 
+    ExtractedPairs, 
+    CoherenceVerdict, 
+    CoherenceVerdicts, 
+    CoherenceScoreReason
 )
 
-from .template import FunctionCoverageTemplate
+from template import CodeCoherenceTemplate
 
 
-class FunctionParameterCoverageMetric(BaseMetric):
+class CodeCoherenceMetric(BaseMetric):
     _required_params: List[LLMTestCaseParams] = [
         LLMTestCaseParams.ACTUAL_OUTPUT,
     ]
@@ -46,7 +46,7 @@ class FunctionParameterCoverageMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
-        self.evaluation_template = FunctionCoverageTemplate()
+        self.evaluation_template = CodeCoherenceTemplate()
 
     def measure(
         self,
@@ -58,9 +58,9 @@ class FunctionParameterCoverageMetric(BaseMetric):
         check_llm_test_case_params(
             test_case,
             self._required_params,
-            None,
-            None,
-            self,
+            None,  # expected_output_image_count
+            None,  # actual_output_image_count
+            self,  # metric
             self.model,
             getattr(test_case, "multimodal", False),
         )
@@ -74,15 +74,15 @@ class FunctionParameterCoverageMetric(BaseMetric):
             else:
                 actual_output = test_case.actual_output
 
-                self.functions = self._generate_functions(actual_output)
+                self.pairs = self._generate_pairs(actual_output)
                 
-                if not self.functions:
+                if not self.pairs:
                     self.score = 1.0
-                    self.reason = "Сигнатуры функций не найдены в документации."
+                    self.reason = "Блоки кода не найдены в документации."
                     self.success = True
                     return self.score
 
-                self.verdicts = self._generate_verdicts(self.functions)
+                self.verdicts = self._generate_verdicts(self.pairs)
                 self.score = self._calculate_score()
                 self.reason = self._generate_reason()
                 self.success = self.score >= self.threshold
@@ -90,8 +90,8 @@ class FunctionParameterCoverageMetric(BaseMetric):
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
-                        f"Extracted Functions:\n{prettify_list([f.model_dump() for f in self.functions])}",
-                        f"Verdicts:\n{prettify_list([v.model_dump() for v in self.verdicts])}",
+                        f"Extracted Pairs:\n{prettify_list([p.dict() for p in self.pairs])}",
+                        f"Verdicts:\n{prettify_list([v.dict() for v in self.verdicts])}",
                         f"Score: {self.score}\nReason: {self.reason}",
                     ],
                 )
@@ -101,9 +101,9 @@ class FunctionParameterCoverageMetric(BaseMetric):
         check_llm_test_case_params(
             test_case,
             self._required_params,
-            None,
-            None,
-            self,
+            None,  # expected_output_image_count
+            None,  # actual_output_image_count
+            self,  # metric
             self.model,
             getattr(test_case, "multimodal", False),
         )
@@ -112,14 +112,14 @@ class FunctionParameterCoverageMetric(BaseMetric):
         with metric_progress_indicator(self, async_mode=True, _show_indicator=_show_indicator, _in_component=_in_component):
             actual_output = test_case.actual_output
 
-            self.functions = await self._a_generate_functions(actual_output)
-            if not self.functions:
+            self.pairs = await self._a_generate_pairs(actual_output)
+            if not self.pairs:
                 self.score = 1.0
-                self.reason = "The function signatures were not found in the documentation."
+                self.reason = "The code blocks were not found in the documentation."
                 self.success = True
                 return self.score
 
-            self.verdicts = await self._a_generate_verdicts(self.functions)
+            self.verdicts = await self._a_generate_verdicts(self.pairs)
             self.score = self._calculate_score()
             self.reason = await self._a_generate_reason()
             self.success = self.score >= self.threshold
@@ -127,58 +127,58 @@ class FunctionParameterCoverageMetric(BaseMetric):
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
-                    f"Extracted Functions:\n{prettify_list([f.model_dump() for f in self.functions])}",
-                    f"Verdicts:\n{prettify_list([v.model_dump() for v in self.verdicts])}",
+                    f"Extracted Pairs:\n{prettify_list([p.dict() for p in self.pairs])}",
+                    f"Verdicts:\n{prettify_list([v.dict() for v in self.verdicts])}",
                     f"Score: {self.score}\nReason: {self.reason}",
                 ],
             )
             return self.score
     
-    def _generate_functions(self, actual_output: str) -> List[FunctionExtraction]:
-        prompt = self.evaluation_template.extract_functions(actual_output)
+    def _generate_pairs(self, actual_output: str) -> List[CodeExplanationPair]:
+        prompt = self.evaluation_template.extract_pairs(actual_output)
         return generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=ExtractedFunctions,
-            extract_schema=lambda x: x.functions, extract_json=lambda d: [FunctionExtraction(**p) for p in d["functions"]]
+            metric=self, prompt=prompt, schema_cls=ExtractedPairs,
+            extract_schema=lambda x: x.pairs, extract_json=lambda d: [CodeExplanationPair(**p) for p in d["pairs"]]
         )
 
-    def _generate_verdicts(self, functions: List[FunctionExtraction]) -> List[ParameterVerdict]:
-        prompt = self.evaluation_template.generate_verdicts(functions)
+    def _generate_verdicts(self, pairs: List[CodeExplanationPair]) -> List[CoherenceVerdict]:
+        prompt = self.evaluation_template.generate_verdicts(pairs)
         return generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=ParameterVerdicts,
-            extract_schema=lambda x: x.verdicts, extract_json=lambda d: [ParameterVerdict(**v) for v in d["verdicts"]]
+            metric=self, prompt=prompt, schema_cls=CoherenceVerdicts,
+            extract_schema=lambda x: x.verdicts, extract_json=lambda d: [CoherenceVerdict(**v) for v in d["verdicts"]]
         )
 
     def _generate_reason(self) -> str:
         if not self.include_reason: return None
         irrelevant_statements = [v.reason for v in self.verdicts if v.verdict.strip().lower() == "no"]
-        if not irrelevant_statements: return "Все параметры всех функций описаны подробно и корректно."
+        if not irrelevant_statements: return "All the code blocks are perfectly described."
         prompt = self.evaluation_template.generate_reason(irrelevant_statements, format(self.score, ".2f"))
         return generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=ParameterScoreReason,
+            metric=self, prompt=prompt, schema_cls=CoherenceScoreReason,
             extract_schema=lambda x: x.reason, extract_json=lambda d: d["reason"]
         )
 
-    async def _a_generate_functions(self, actual_output: str) -> List[FunctionExtraction]:
-        prompt = self.evaluation_template.extract_functions(actual_output)
+    async def _a_generate_pairs(self, actual_output: str) -> List[CodeExplanationPair]:
+        prompt = self.evaluation_template.extract_pairs(actual_output)
         return await a_generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=ExtractedFunctions,
-            extract_schema=lambda x: x.functions, extract_json=lambda d: [FunctionExtraction(**p) for p in d["functions"]]
+            metric=self, prompt=prompt, schema_cls=ExtractedPairs,
+            extract_schema=lambda x: x.pairs, extract_json=lambda d: [CodeExplanationPair(**p) for p in d["pairs"]]
         )
 
-    async def _a_generate_verdicts(self, functions: List[FunctionExtraction]) -> List[ParameterVerdict]:
-        prompt = self.evaluation_template.generate_verdicts(functions)
+    async def _a_generate_verdicts(self, pairs: List[CodeExplanationPair]) -> List[CoherenceVerdict]:
+        prompt = self.evaluation_template.generate_verdicts(pairs)
         return await a_generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=ParameterVerdicts,
-            extract_schema=lambda x: x.verdicts, extract_json=lambda d: [ParameterVerdict(**v) for v in d["verdicts"]]
+            metric=self, prompt=prompt, schema_cls=CoherenceVerdicts,
+            extract_schema=lambda x: x.verdicts, extract_json=lambda d: [CoherenceVerdict(**v) for v in d["verdicts"]]
         )
 
     async def _a_generate_reason(self) -> str:
         if not self.include_reason: return None
         irrelevant_statements = [v.reason for v in self.verdicts if v.verdict.strip().lower() == "no"]
-        if not irrelevant_statements: return "Все параметры всех функций описаны подробно и корректно."
+        if not irrelevant_statements: return "All the code blocks are perfectly described."
         prompt = self.evaluation_template.generate_reason(irrelevant_statements, format(self.score, ".2f"))
         return await a_generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=ParameterScoreReason,
+            metric=self, prompt=prompt, schema_cls=CoherenceScoreReason,
             extract_schema=lambda x: x.reason, extract_json=lambda d: d["reason"]
         )
 
@@ -197,4 +197,4 @@ class FunctionParameterCoverageMetric(BaseMetric):
 
     @property
     def __name__(self):
-        return "Function Parameter Coverage Metric"
+        return "Code Coherence Metric"

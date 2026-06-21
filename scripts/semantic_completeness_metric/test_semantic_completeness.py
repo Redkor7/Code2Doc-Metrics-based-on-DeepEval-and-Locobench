@@ -1,11 +1,5 @@
 from deepeval.test_case import LLMTestCase
-from semantic_completeness.semantic_completeness import SemanticCompletenessMetric 
-from giga_chat import CustomGigaChat
-from dotenv import load_dotenv
-import os
-
-load_dotenv()
-API_KEY = os.getenv("GigaChat_API_Key")
+from semantic_completeness import SemanticCompletenessMetric 
 
 # 1. Prepare the reference data (Golden Standard)
 # This is the ideal response that contains all key facts.
@@ -34,12 +28,11 @@ Ensure that the database is working correctly.
 
 # 3. Initialize GigaChat
 # Replace "api" with your actual key or leave as is if the key is pulled from .env
-gigachat_llm = CustomGigaChat(credentials=API_KEY)
 
 # 4. Create the metric
 metric = SemanticCompletenessMetric(
 threshold=0.8,
-model=gigachat_llm,
+model="gpt-4.1-mini",
 include_reason=True,
 verbose_mode=True # Enabled to see the process of fact extraction and judging
 )

@@ -14,19 +14,20 @@ from deepeval.metrics import BaseMetric
 from deepeval.models import DeepEvalBaseLLM
 from deepeval.metrics.indicator import metric_progress_indicator
 
-from .schema import (
-    ExpectedFacts,
-    FactVerdict,
-    CompletenessVerdicts,
-    CompletenessScoreReason
+from schema import (
+    FunctionExtraction, 
+    ExtractedFunctions, 
+    ParameterVerdict, 
+    ParameterVerdicts, 
+    ParameterScoreReason
 )
-from .template import SemanticCompletenessTemplate
+
+from template import FunctionCoverageTemplate
 
 
-class SemanticCompletenessMetric(BaseMetric):
+class FunctionParameterCoverageMetric(BaseMetric):
     _required_params: List[LLMTestCaseParams] = [
         LLMTestCaseParams.ACTUAL_OUTPUT,
-        LLMTestCaseParams.EXPECTED_OUTPUT,
     ]
 
     def __init__(
@@ -45,7 +46,7 @@ class SemanticCompletenessMetric(BaseMetric):
         self.async_mode = async_mode
         self.strict_mode = strict_mode
         self.verbose_mode = verbose_mode
-        self.evaluation_template = SemanticCompletenessTemplate()
+        self.evaluation_template = FunctionCoverageTemplate()
 
     def measure(
         self,
@@ -72,21 +73,16 @@ class SemanticCompletenessMetric(BaseMetric):
                 loop.run_until_complete(self.a_measure(test_case, False, _in_component, _log_metric_to_confident))
             else:
                 actual_output = test_case.actual_output
-                expected_output = test_case.expected_output
 
-                # 1. extract a checklist of facts from the standard
-                self.expected_facts = self._extract_facts(expected_output)
+                self.functions = self._generate_functions(actual_output)
                 
-                if not self.expected_facts:
+                if not self.functions:
                     self.score = 1.0
-                    self.reason = "In the reference document, no key facts were found for evaluation."
+                    self.reason = "Сигнатуры функций не найдены в документации."
                     self.success = True
                     return self.score
 
-                # 2. Checking with the actual response
-                self.verdicts = self._evaluate_facts(actual_output, self.expected_facts)
-                
-                # 3. Calculate the result and generate a reason
+                self.verdicts = self._generate_verdicts(self.functions)
                 self.score = self._calculate_score()
                 self.reason = self._generate_reason()
                 self.success = self.score >= self.threshold
@@ -94,8 +90,8 @@ class SemanticCompletenessMetric(BaseMetric):
                 self.verbose_logs = construct_verbose_logs(
                     self,
                     steps=[
-                        f"Expected Facts Extracted:\n{prettify_list(self.expected_facts)}",
-                        f"Verdicts:\n{prettify_list([v.dict() for v in self.verdicts])}",
+                        f"Extracted Functions:\n{prettify_list([f.model_dump() for f in self.functions])}",
+                        f"Verdicts:\n{prettify_list([v.model_dump() for v in self.verdicts])}",
                         f"Score: {self.score}\nReason: {self.reason}",
                     ],
                 )
@@ -115,17 +111,15 @@ class SemanticCompletenessMetric(BaseMetric):
         
         with metric_progress_indicator(self, async_mode=True, _show_indicator=_show_indicator, _in_component=_in_component):
             actual_output = test_case.actual_output
-            expected_output = test_case.expected_output
 
-            self.expected_facts = await self._a_extract_facts(expected_output)
-            
-            if not self.expected_facts:
+            self.functions = await self._a_generate_functions(actual_output)
+            if not self.functions:
                 self.score = 1.0
-                self.reason = "In the reference document, no key facts were found for evaluation."
+                self.reason = "The function signatures were not found in the documentation."
                 self.success = True
                 return self.score
 
-            self.verdicts = await self._a_evaluate_facts(actual_output, self.expected_facts)
+            self.verdicts = await self._a_generate_verdicts(self.functions)
             self.score = self._calculate_score()
             self.reason = await self._a_generate_reason()
             self.success = self.score >= self.threshold
@@ -133,77 +127,65 @@ class SemanticCompletenessMetric(BaseMetric):
             self.verbose_logs = construct_verbose_logs(
                 self,
                 steps=[
-                    f"Expected Facts Extracted:\n{prettify_list(self.expected_facts)}",
-                    f"Verdicts:\n{prettify_list([v.dict() for v in self.verdicts])}",
+                    f"Extracted Functions:\n{prettify_list([f.model_dump() for f in self.functions])}",
+                    f"Verdicts:\n{prettify_list([v.model_dump() for v in self.verdicts])}",
                     f"Score: {self.score}\nReason: {self.reason}",
                 ],
             )
             return self.score
-
     
-    def _extract_facts(self, expected_output: str) -> List[str]:
-        prompt = self.evaluation_template.extract_facts(expected_output)
+    def _generate_functions(self, actual_output: str) -> List[FunctionExtraction]:
+        prompt = self.evaluation_template.extract_functions(actual_output)
         return generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=ExpectedFacts,
-            extract_schema=lambda x: x.facts, extract_json=lambda d: d["facts"]
+            metric=self, prompt=prompt, schema_cls=ExtractedFunctions,
+            extract_schema=lambda x: x.functions, extract_json=lambda d: [FunctionExtraction(**p) for p in d["functions"]]
         )
 
-    def _evaluate_facts(self, actual_output: str, expected_facts: List[str]) -> List[FactVerdict]:
-        prompt = self.evaluation_template.evaluate_facts(actual_output, expected_facts)
+    def _generate_verdicts(self, functions: List[FunctionExtraction]) -> List[ParameterVerdict]:
+        prompt = self.evaluation_template.generate_verdicts(functions)
         return generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=CompletenessVerdicts,
-            extract_schema=lambda x: x.verdicts, extract_json=lambda d: [FactVerdict(**v) for v in d["verdicts"]]
+            metric=self, prompt=prompt, schema_cls=ParameterVerdicts,
+            extract_schema=lambda x: x.verdicts, extract_json=lambda d: [ParameterVerdict(**v) for v in d["verdicts"]]
         )
 
     def _generate_reason(self) -> str:
         if not self.include_reason: return None
-        # Collecting reasons only for missing facts (no)
-        missing_facts = [f"Fact: {v.fact}\nReason: {v.reason}" for v in self.verdicts if v.verdict.strip().lower() == "no"]
-        
-        if not missing_facts: 
-            return "The documentation contains all the necessary facts from the reference."
-            
-        prompt = self.evaluation_template.generate_reason(missing_facts, format(self.score, ".2f"))
+        irrelevant_statements = [v.reason for v in self.verdicts if v.verdict.strip().lower() == "no"]
+        if not irrelevant_statements: return "Все параметры всех функций описаны подробно и корректно."
+        prompt = self.evaluation_template.generate_reason(irrelevant_statements, format(self.score, ".2f"))
         return generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=CompletenessScoreReason,
+            metric=self, prompt=prompt, schema_cls=ParameterScoreReason,
             extract_schema=lambda x: x.reason, extract_json=lambda d: d["reason"]
         )
 
-    # --- Asynchronous LLM call methods ---
-    
-    async def _a_extract_facts(self, expected_output: str) -> List[str]:
-        prompt = self.evaluation_template.extract_facts(expected_output)
+    async def _a_generate_functions(self, actual_output: str) -> List[FunctionExtraction]:
+        prompt = self.evaluation_template.extract_functions(actual_output)
         return await a_generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=ExpectedFacts,
-            extract_schema=lambda x: x.facts, extract_json=lambda d: d["facts"]
+            metric=self, prompt=prompt, schema_cls=ExtractedFunctions,
+            extract_schema=lambda x: x.functions, extract_json=lambda d: [FunctionExtraction(**p) for p in d["functions"]]
         )
 
-    async def _a_evaluate_facts(self, actual_output: str, expected_facts: List[str]) -> List[FactVerdict]:
-        prompt = self.evaluation_template.evaluate_facts(actual_output, expected_facts)
+    async def _a_generate_verdicts(self, functions: List[FunctionExtraction]) -> List[ParameterVerdict]:
+        prompt = self.evaluation_template.generate_verdicts(functions)
         return await a_generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=CompletenessVerdicts,
-            extract_schema=lambda x: x.verdicts, extract_json=lambda d: [FactVerdict(**v) for v in d["verdicts"]]
+            metric=self, prompt=prompt, schema_cls=ParameterVerdicts,
+            extract_schema=lambda x: x.verdicts, extract_json=lambda d: [ParameterVerdict(**v) for v in d["verdicts"]]
         )
 
     async def _a_generate_reason(self) -> str:
         if not self.include_reason: return None
-        missing_facts = [f"Fact: {v.fact}\nReason: {v.reason}" for v in self.verdicts if v.verdict.strip().lower() == "no"]
-        if not missing_facts: 
-            return "The documentation contains all the necessary facts from the reference."
-            
-        prompt = self.evaluation_template.generate_reason(missing_facts, format(self.score, ".2f"))
+        irrelevant_statements = [v.reason for v in self.verdicts if v.verdict.strip().lower() == "no"]
+        if not irrelevant_statements: return "Все параметры всех функций описаны подробно и корректно."
+        prompt = self.evaluation_template.generate_reason(irrelevant_statements, format(self.score, ".2f"))
         return await a_generate_with_schema_and_extract(
-            metric=self, prompt=prompt, schema_cls=CompletenessScoreReason,
+            metric=self, prompt=prompt, schema_cls=ParameterScoreReason,
             extract_schema=lambda x: x.reason, extract_json=lambda d: d["reason"]
         )
 
-    # --- Logic and Mathematics ---
-
     def _calculate_score(self):
         if len(self.verdicts) == 0: return 1.0
-
-        covered_count = sum(1 for v in self.verdicts if v.verdict.strip().lower() != "no")
-        score = covered_count / len(self.verdicts)
+        relevant_count = sum(1 for v in self.verdicts if v.verdict.strip().lower() != "no")
+        score = relevant_count / len(self.verdicts)
         return 0 if self.strict_mode and score < self.threshold else score
 
     def is_successful(self) -> bool:
@@ -215,4 +197,4 @@ class SemanticCompletenessMetric(BaseMetric):
 
     @property
     def __name__(self):
-        return "Semantic Completeness Metric"
+        return "Function Parameter Coverage Metric"

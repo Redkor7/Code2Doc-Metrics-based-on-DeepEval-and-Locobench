@@ -1,5 +1,5 @@
 from typing import List
-from .schema import FunctionExtraction
+from schema import FunctionExtraction
 
 class FunctionCoverageTemplate:
     @staticmethod
