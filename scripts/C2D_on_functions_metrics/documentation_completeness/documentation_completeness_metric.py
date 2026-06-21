@@ -68,16 +68,16 @@ class DocumentationCompletenessMetric(BaseMetric):
                 input_code = test_case.input
                 actual_output = test_case.actual_output
 
-                # Шаг 1: Формируем чек-лист по коду
+                # Step 1: Create a checklist based on the code
                 self.required_elements = self._generate_requirements(input_code)
                 
                 if not self.required_elements:
                     self.score = 1.0
-                    self.reason = "Не найдено элементов, требующих документирования (возможно, код пуст)."
+                    self.reason = "No documentation elements found (possibly the code is empty)."
                     self.success = True
                     return self.score
 
-                # Шаг 2: Сверяем сгенерированную документацию с чек-листом
+                # Step 2: Compare the generated documentation with the checklist
                 self.verdicts = self._generate_verdicts(self.required_elements, actual_output)
                 
                 self.score = self._calculate_score()
@@ -143,7 +143,7 @@ class DocumentationCompletenessMetric(BaseMetric):
     def _generate_reason(self) -> str:
         if not self.include_reason: return None
         missing_reasons = [f"Missing '{v.element_name}': {v.reason}" for v in self.verdicts if v.verdict.strip().lower() == "no"]
-        if not missing_reasons: return "Документация полностью описывает все необходимые элементы исходного кода."
+        if not missing_reasons: return "Documentation fully describes all required elements of the source code."
         prompt = self.evaluation_template.generate_reason(missing_reasons, format(self.score, ".2f"))
         return generate_with_schema_and_extract(
             metric=self, prompt=prompt, schema_cls=CompletenessScoreReason,
@@ -167,7 +167,7 @@ class DocumentationCompletenessMetric(BaseMetric):
     async def _a_generate_reason(self) -> str:
         if not self.include_reason: return None
         missing_reasons = [f"Missing '{v.element_name}': {v.reason}" for v in self.verdicts if v.verdict.strip().lower() == "no"]
-        if not missing_reasons: return "Документация полностью описывает все необходимые элементы исходного кода."
+        if not missing_reasons: return "Documentation fully describes all required elements of the source code."
         prompt = self.evaluation_template.generate_reason(missing_reasons, format(self.score, ".2f"))
         return await a_generate_with_schema_and_extract(
             metric=self, prompt=prompt, schema_cls=CompletenessScoreReason,
@@ -176,7 +176,7 @@ class DocumentationCompletenessMetric(BaseMetric):
 
     def _calculate_score(self):
         if len(self.verdicts) == 0: return 1.0
-        # Балл = количество задокументированных элементов / общее количество требуемых элементов
+        # Score = number of documented elements / total number of required elements
         covered_count = sum(1 for v in self.verdicts if v.verdict.strip().lower() != "no")
         score = covered_count / len(self.verdicts)
         return 0 if self.strict_mode and score < self.threshold else score

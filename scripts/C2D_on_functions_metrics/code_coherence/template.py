@@ -17,8 +17,8 @@ Source Code:
 Generated Documentation (Actual Output):
 {actual_output}
 
-Return a JSON with a 'verdicts' array. Provide exactly three items, one for each aspect ('Intent', 'Abstraction', 'Clarity'). 
-Each item must have a 'verdict' ('yes' or 'no') and a detailed 'reason'.
+Return a JSON with a 'verdicts' array. Provide exactly three items, one for each aspect. 
+Each item MUST have an 'aspect' field (strictly 'Intent', 'Abstraction', or 'Clarity'), a 'verdict' field ('yes' or 'no'), and a detailed 'reason' field.
 CRITICAL: OUTPUT ONLY VALID RAW JSON. DO NOT USE MARKDOWN BLOCKS (```json). DO NOT ADD ANY CONVERSATIONAL TEXT BEFORE OR AFTER THE JSON.
 """
 
